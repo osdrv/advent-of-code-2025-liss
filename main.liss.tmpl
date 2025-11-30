@@ -1,0 +1,18 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+
+(let IS_DEBUG? true)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+((fn main []
+    (let input (read_input_file "INPUT-TST"))
+    ; (let input (read_input_file "INPUT"))
+    (let lines (fn [] (strings:split input "\n")))
+    (cond IS_DEBUG? (println lines))
+))
