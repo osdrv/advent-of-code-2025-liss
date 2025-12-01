@@ -13,6 +13,6 @@
 ((fn main []
     (let input (read_input_file "INPUT-TST"))
     ; (let input (read_input_file "INPUT"))
-    (let lines (fn [] (strings:split input "\n")))
+    (let lines (strings:split input "\n"))
     (cond IS_DEBUG? (println lines))
 ))

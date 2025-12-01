@@ -1,0 +1,58 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+(import "math" ["abs"])
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+; This function ensures that a given round number is always within the range of 0 to N.
+(fn cycle_num [num N]
+    (let nnum (mod num N))
+    (cond (< nnum 0)
+        (+ N nnum)
+        nnum
+    )
+)
+
+((fn main []
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+
+    (let res (list:reduce lines (fn [acc line]
+        (let dir (head line))
+        (let pos (head acc))
+        (let dist (strings:atoi (tail line)))
+        (let full_rots (/ dist 100))
+        (let delta (mod dist 100))
+        (let _npos (+ pos (cond (= dir "R") delta (* delta -1))))
+        (let move_over (switch
+            [(< (* pos _npos) 0) 1]
+            [(> _npos 100) 1]
+            [* 0]
+        ))
+        (let npos (cycle_num _npos 100))
+        (let points_at (cond (= npos 0) 1 0))
+        (cond IS_DEBUG?
+            (
+                (println "Full rots: " full_rots)
+                (println "Delta: " delta)
+                (println "Move over: " move_over)
+                (println "Points at: " points_at)
+                (println "New pos: " npos)
+            )
+        )
+        (put acc 0 npos)
+        (put acc 1 (+ points_at (get acc 1)))
+        (put acc 2 (+ points_at move_over full_rots (get acc 2)))
+        acc
+    ) [50 0 0]))
+
+    (println "Res1: " (get res 1))
+    (println "Res2: " (get res 2))
+))
