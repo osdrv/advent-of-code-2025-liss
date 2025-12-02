@@ -1,0 +1,150 @@
+(import "strings" ["split" "atoi" "range"])
+(import "list" ["map" "reduce" "push"])
+(import "math" ["ceil" "floor"])
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn num_digits [n]
+    (fn _next [acc nd]
+        (cond (> nd 0)
+            (_next (+ acc 1) (/ nd 10))
+            acc
+        )
+    )
+    (_next 0 n)
+)
+
+(fn pow [base times]
+    (fn _next [num ix]
+        (cond (>= ix times)
+            num
+            (_next (* num base) (+ ix 1))
+        )
+    )
+    (cond (= times 0)
+        1
+        (_next base 1)
+    )
+)
+
+(fn dup_num [num times]
+    (let nd (num_digits num))
+    (let fact (pow 10 nd))
+    (fn _next [cur ix]
+        (cond (>= ix times)
+            cur
+            (_next (+ (* cur fact) num) (+ ix 1))
+        )
+    )
+    (let dd (_next num 1))
+    dd
+)
+
+(fn sum_list [ll]
+    (list:reduce ll (fn [acc num]
+        (+ acc num)
+    ) 0)
+)
+
+(fn collect_all [rr max_fact]
+    (let a (get rr 0))
+    (let b (get rr 1))
+    (let ndmax (/ (num_digits b) 2))
+    (cond IS_DEBUG? (println "num digits to check: 1.." ndmax))
+
+    (fn _find_strange [_acc left right nd]
+        (let b1 (strings:atoi
+            (builtin:range (str left) 0 nd)
+        ))
+        (let b2 (strings:atoi
+            (builtin:range (str right) 0 nd)
+        ))
+        (let f1 (/ (num_digits left) nd))
+        (let f2 (/ (num_digits right) nd))
+        (fn _step [acc num fact]
+            (cond (or (<= fact 1) (> fact max_fact))
+                acc
+                (
+                    (let nn (dup_num num fact))
+                    (cond (< nn left)
+                        (_step acc (+ num 1) fact)
+                        (cond (> nn right)
+                            acc
+                            (
+                                (cond IS_DEBUG? (println "collect " nn " (" num " repeated " fact " times)"))
+                                (cond (not (has? acc nn))
+                                    (
+                                        (put acc nn null)
+                                    )
+                                )
+                                (_step acc (+ num 1) fact)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        (_step _acc b1 f1)
+        (_step _acc b2 f2)
+        _acc
+    )
+
+    (fn _next [acc nd]
+        (cond (> nd ndmax)
+            acc
+            (
+                (cond IS_DEBUG? (println "trying " nd " digits"))
+                (let strange (_find_strange acc a b nd))
+                (_next
+                    acc
+                    (+ nd 1)
+                )
+            )
+        )
+    )
+    (let res (_next (dict) 1))
+    (let kk (keys res))
+    (cond IS_DEBUG? (println "strange numbers: " res))
+    (sum_list (keys res))
+)
+
+((fn main []
+    ; (let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let pat (re "(\\d+)-(\\d+)"))
+
+    (let rs (strings:split (head lines) ","))
+    (let ranges (list:reduce rs (fn [acc rr]
+        (let mm (match pat rr))
+        (list:push acc [
+            (strings:atoi (get mm 1))
+            (strings:atoi (get mm 2))
+        ])
+    ) []))
+    (cond IS_DEBUG? (println ranges))
+
+    (let res1 (list:reduce ranges (fn [acc rr]
+        (+ acc (collect_all rr 2))
+    ) 0))
+    (println "res1: " res1)
+
+    (let res2 (list:reduce ranges (fn [acc rr]
+        (cond IS_DEBUG? (
+            (println "=========")
+            (println "range: " rr)
+        ))
+        (let _acc (+ acc (collect_all rr 999)))
+        _acc
+    ) 0))
+    (println "res2: " res2)
+))
