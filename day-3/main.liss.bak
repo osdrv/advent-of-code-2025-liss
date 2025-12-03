@@ -1,0 +1,83 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+
+(let IS_DEBUG? true)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn max_ix [arr]
+    (cond IS_DEBUG? (println "arr: " arr))
+    (fn _next [ix prev]
+        (cond (>= ix (len arr))
+            prev
+            (cond (> (get arr ix) (get arr prev))
+                (_next (+ ix 1) ix)
+                (_next (+ ix 1) prev)
+            )
+        )
+    )
+    (_next 1 0)
+)
+
+(fn find_maxj [bank]
+    (let l1 (list:range bank 0 (- (len bank) 1)))
+    (let d1 (max_ix l1))
+    (let l2 (list:range bank (+ d1 1) (len bank)))
+    (let d2 (max_ix l2))
+    (+ (* (get l1 d1) 10) (get l2 d2))
+)
+
+(fn find_maxj2 [bank ndig]
+    (fn _next [acc off nleft]
+        (cond (= nleft 0)
+            acc
+            (
+                (cond IS_DEBUG? (println "offset: " off " digits left: " ndig))
+                (let right (- (len bank) (- ndig 1)))        
+                (let l (list:range bank off right))
+                (cond IS_DEBUG? "range: " l)
+                (let maxix (find_maxj l))
+                (cond IS_DEBUG? "next max digit: " (get l maxix))
+                ; (_next
+                ;     (+ (* acc 10) (get l maxix))
+                ;     maxix
+                ;     (- nleft 1)
+                ; )
+            )
+        )
+    )
+    (_next 0 0 ndig)
+)
+
+((fn main []
+    (let input (read_input_file "INPUT-TST"))
+    ; (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let batts (list:map lines (fn [line]
+        (list:map line strings:atoi)
+    )))
+    (println batts)
+
+    (let res1 (list:reduce batts (fn [acc bank]
+        (cond IS_DEBUG? (println "inspecting bank: " bank))
+        (let maxj (find_maxj bank))
+        (cond IS_DEBUG? (println "maxj: " maxj))
+        (+ acc maxj)
+    ) 0))
+    (println "res1: " res1)
+
+    (let res2 (list:reduce batts (fn [acc bank]
+        (cond IS_DEBUG? (println "inspecting bank: " bank))
+        (let maxj (find_maxj2 bank 12))
+        (cond IS_DEBUG? (println "maxj2: " maxj))
+        (+ acc maxj)
+    ) 0))
+    (println "res2: " res2)
+))

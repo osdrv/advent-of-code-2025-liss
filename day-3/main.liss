@@ -1,0 +1,73 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn max_ix [arr]
+    (fn _next [ix prev]
+        (cond (>= ix (len arr))
+            prev
+            (cond (> (get arr ix) (get arr prev))
+                (_next (+ ix 1) ix)
+                (_next (+ ix 1) prev)
+            )
+        )
+    )
+    (_next 1 0)
+)
+
+(fn find_maxj [bank ndig]
+    (fn _next [acc off nleft]
+        (cond (= nleft 0)
+            acc
+            (
+                (cond IS_DEBUG? (println "offset: " off " digits left: " nleft))
+                (let right (- (len bank) (- nleft 1)))        
+                (let l (list:range bank off right))
+                (cond IS_DEBUG? (println "range: " l))
+                (let ix (max_ix l))
+                (_next
+                    (+ (* acc 10) (get l ix))
+                    (+ off (+ ix 1))
+                    (- nleft 1)
+                )
+            )
+        )
+    )
+    (_next 0 0 ndig)
+)
+
+((fn main []
+    ; (let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let batts (list:map lines (fn [line]
+        (list:map line strings:atoi)
+    )))
+    (cond IS_DEBUG? (println batts))
+
+    (let res1 (list:reduce batts (fn [acc bank]
+        (cond IS_DEBUG? (println "inspecting bank: " bank))
+        (let maxj (find_maxj bank 2))
+        (cond IS_DEBUG? (println "maxj: " maxj))
+        (+ acc maxj)
+    ) 0))
+    (println "res1: " res1)
+
+    (let res2 (list:reduce batts (fn [acc bank]
+        (cond IS_DEBUG? (println "inspecting bank: " bank))
+        (let maxj (find_maxj bank 12))
+        (cond IS_DEBUG? (println "maxj2: " maxj))
+        (+ acc maxj)
+    ) 0))
+    (println "res2: " res2)
+))
