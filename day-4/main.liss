@@ -1,0 +1,93 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(let STEPS [
+    [1 0]
+    [-1 0]
+    [0 1]
+    [0 -1]
+    [1 1]
+    [1 -1]
+    [-1 1]
+    [-1 -1]
+])
+
+(fn find_accessible [lines N]
+    (let height (len lines))
+    (let width (len (get lines 0)))
+    (fn _next [acc x y]
+        (cond (>= y height)
+            acc
+            (cond (>= x width)
+                (_next acc 0 (+ y 1))
+                (
+                    (cond (= (get (get lines y) x) "@")
+                        (
+                            (let around (list:reduce STEPS (fn [acc2 step]
+                                (let nx (+ x (get step 0)))
+                                (let ny (+ y (get step 1)))
+                                (cond (or (< nx 0) (< ny 0) (>= nx width) (>= ny height))
+                                    acc2
+                                    (+ acc2 (cond (= (get (get lines ny) nx) "@")
+                                        1
+                                        0
+                                    ))
+                                )
+                            ) 0))
+                            (let plus1 (cond (< around N) [[x y]] []))
+                            (cond (not (is_empty? plus1))
+                                (cond IS_DEBUG? (println "pos x:" x " y:" y " has " around " rolls"))
+                            )
+                            (_next (+ acc plus1) (+ x 1) y)
+                        )
+                        (_next acc (+ x 1) y)
+                    )
+                )
+            )
+        )
+    )
+    (_next [] 0 0)
+)
+
+(fn reduce_all [lines]
+    (let field (list:map lines (fn [line]
+        (list:map line (fn [ch] ch))
+    )))
+    (fn _next [acc]
+        (let rems (find_accessible field 4))
+        (cond IS_DEBUG? (println "Can remove " rems ))
+        (list:map rems (fn [pos]
+            (let x (get pos 0))
+            (let y (get pos 1))
+            (put (get field y) x ".")
+        ))
+        (let _acc (+ acc (len rems)))
+        (cond (is_empty? rems)
+            _acc
+            (_next _acc)
+        )
+    )
+    (_next 0)
+)
+
+((fn main []
+    ; (let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let res1 (len (find_accessible lines 4)))
+    (println "res1: " res1)
+
+    (let res2 (reduce_all lines))
+    (println "res2: " res2)
+))
