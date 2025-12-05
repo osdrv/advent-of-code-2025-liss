@@ -2,7 +2,7 @@
 (import "list" ["map" "reduce"])
 (import "math" ["max" "min"])
 
-(let IS_DEBUG? true)
+(let IS_DEBUG? false)
 
 (fn read_input_file [src]
     (let f (fopen src))
@@ -122,10 +122,10 @@
         )
     )))
 
-    (println "sorted ranges: " srs)
+    (cond IS_DEBUG? (println "sorted ranges: " srs))
     (let mrs (merge_ranges srs))
 
-    (println "merged ranges: " mrs)
+    (cond IS_DEBUG? (println "merged ranges: " mrs))
     (let res2 (list:reduce mrs (fn [acc rng]
         (+ acc 1 (- (last rng) (head rng)))
     ) 0))
