@@ -1,0 +1,133 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+(import "math" ["max" "min"])
+
+(let IS_DEBUG? true)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn parse_ranges [lines]
+    (let linesL (len lines))
+    (fn _next [acc ix]
+        (cond (>= ix linesL)
+            null
+            (cond (= (get lines ix) "")
+                [acc ix]
+                (
+                    (let chs (strings:split (get lines ix) "-"))
+                    (let r [
+                        (strings:atoi (get chs 0))
+                        (strings:atoi (get chs 1))
+                    ])
+                    (let _acc (list:push acc r))
+                    (_next _acc (+ ix 1))
+                )
+            )
+        )
+    )
+    (_next [] 0)
+)
+
+(fn is_fresh? [ranges ingr]
+    (let rL (len ranges))
+    (fn _next [ix]
+        (cond (>= ix rL)
+            false
+            (
+                (let r (get ranges ix))
+                (cond IS_DEBUG? (println "trying range: " r))
+                (cond (and (>= ingr (head r)) (<= ingr (last r)))
+                    true
+                    (_next (+ ix 1))
+                )
+            )
+        )
+    )
+    (_next 0)
+)
+
+(fn merge [ra rb]
+    [
+        (math:min (head ra) (head rb))
+        (math:max (last ra) (last rb))
+    ]
+)
+
+(fn overlap? [ra rb]
+    (cond IS_DEBUG? (println "ra: " ra " rb: " rb))
+    (or
+        (and (>= (head ra) (head rb)) (<= (head ra) (last rb)))
+        (and (>= (last ra) (head rb)) (<= (last ra) (last rb)))
+        (and (>= (head rb) (head ra)) (<= (head rb) (last ra)))
+        (and (>= (last rb) (head ra)) (<= (last rb) (last ra)))
+    )
+)
+
+(fn merge_ranges [rngs]
+    (let rcp (list:map rngs (fn [rng]
+        (list:range rng 0 (len rng))
+    )))
+    (fn _next [acc ix]
+        (cond (>= ix (len rngs))
+            acc
+            (cond (overlap? (get rngs ix) (last acc))
+                (
+                    (let mrg (merge (get rngs ix) (last acc)))
+                    (put acc (- (len acc) 1) mrg)
+                    (_next acc (+ ix 1))
+                )
+                (_next (list:push acc (get rngs ix)) (+ ix 1))
+            )
+        )
+    )
+    (_next [(head rcp)] 1)
+)
+
+((fn main []
+    ;(let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let R (parse_ranges lines))
+    (let ranges (get R 0))
+    (let next_ix (get R 1))
+    (cond IS_DEBUG? (println "ranges: " ranges))
+
+    (let ingrs (list:map (list:range lines (+ next_ix 1) (len lines)) strings:atoi))
+    (cond IS_DEBUG? (println "ingrs: " ingrs))
+
+    (let res1 (list:reduce ingrs (fn [acc ingr]
+        (cond IS_DEBUG? (println "inspecting " ingr))
+        (let fresh (is_fresh? ranges ingr))
+        (+ acc (cond fresh
+            (
+                (cond IS_DEBUG? (println "ingr " ingr " is fresh"))
+                1
+            )
+            0
+        ))
+    ) 0))
+    (println "res1=" res1)
+
+    (let srs (list:sort_fn ranges (fn [a b]
+        (cond (= (head a) (head b))
+            (< (last a) (last b))
+            (< (head a) (head b))
+        )
+    )))
+
+    (println "sorted ranges: " srs)
+    (let mrs (merge_ranges srs))
+
+    (println "merged ranges: " mrs)
+    (let res2 (list:reduce mrs (fn [acc rng]
+        (+ acc 1 (- (last rng) (head rng)))
+    ) 0))
+    (println "res2=" res2)
+))
