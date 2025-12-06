@@ -1,0 +1,128 @@
+(import "strings" ["split" "atoi" "match_all" "trim_left" "trim_right"])
+(import "list" ["map" "reduce"])
+
+(let NUMERIC (re "\\s?\\d+"))
+(let MATCH_NUMS (re "\\s*(\\d+)\\d*"))
+(let MATCH_SYMS (re "\\s*(\\+|\\*)\\s*"))
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn seq [A B]
+    (fn _next [acc ix]
+        (cond (< ix B)
+            (_next (list:push acc ix) (+ ix 1))
+            acc
+        )
+    )
+    (_next [] A)
+)
+
+(fn solve [IN]
+    (let nums (get IN 0))
+    (let ops (get IN 1))
+    (let operands (seq 0 (len nums)))
+    (fn _next [acc ix]
+        (cond (>= ix (len ops))
+            acc
+            (
+                (let op (get ops ix))
+                (let res (list:reduce
+                    operands
+                    (fn [acc2 opix]
+                        (let operand (get (get nums opix) ix))
+                        (cond (= op "+")
+                            (+ acc2 operand)
+                            (* acc2 operand)
+                        )
+                    )
+                    (cond (= op "+") 0 1)
+                ))
+                (_next (list:push acc res) (+ ix 1))
+            )
+        )
+    )
+    (_next [] 0)
+)
+
+(fn MULT [acc num] (* acc num))
+(fn SUM  [acc num] (+ acc num))
+
+(fn solve2 [lines]
+    (let v_ixs (seq 0 (- (len lines) 1)))
+    (fn _finalize [op ops]
+        (list:reduce ops (cond (= op "+") SUM MULT) (cond (= op "+") 0 1))
+    )
+    (fn _next [acc op ops ix_h]
+        (cond (>= ix_h (len (get lines 0)))
+            (
+                (list:push acc (_finalize op ops))
+            )
+            (
+                (let vert (strings:trim_left (strings:trim_right
+                    (strings:join
+                    (list:reduce v_ixs (fn [acc_v ix_v]
+                        (list:push acc_v (get (get lines ix_v) ix_h))
+                    ) [])
+                "") " ") " "))
+                (cond IS_DEBUG? (println "vert='" vert "'"))
+                (let _op (get (last lines) ix_h))
+                (cond (= vert "")
+                    (
+                        (let res (_finalize op ops))
+                        (_next (list:push acc res) "?" [] (+ ix_h 1))
+                    )
+                    (
+                        (_next
+                            acc
+                            (cond (= _op " ") op _op)
+                            (list:push ops (strings:atoi vert))
+                            (+ ix_h 1)
+                        )
+                    )
+                )
+            )
+        )
+    )
+    (_next [] "?" [] 0)
+)
+
+((fn main []
+    ; (let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let IN (list:reduce lines (fn [acc line]
+        (cond (match? NUMERIC line)
+            (
+                (let mtch_nums (list:reduce (strings:match_all MATCH_NUMS line) (fn [acc pair]
+                    (list:push acc (strings:atoi (get pair 1)))
+                ) []))
+                (cond IS_DEBUG? (println "mtch_nums: " mtch_nums))
+                (put acc 0 (list:push (get acc 0) mtch_nums))
+            )
+            (
+                (let mtch_syms (list:reduce (strings:match_all MATCH_SYMS line) (fn [acc pair]
+                    (list:push acc (get pair 1))
+                ) []))
+                (cond IS_DEBUG? (println "mtch_syms: " mtch_syms))
+                (put acc 1 mtch_syms)
+            )
+        )
+        acc
+    ) [[] null]))
+
+    (cond IS_DEBUG? (println "input: " IN))
+    (let res1 (list:reduce (solve IN) SUM 0))
+    (println "res1=" res1)
+
+    (let res2 (list:reduce (solve2 lines) SUM 0))
+    (println "res2=" res2)
+))

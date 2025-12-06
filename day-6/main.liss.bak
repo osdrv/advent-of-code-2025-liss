@@ -1,0 +1,93 @@
+(import "strings" ["split" "atoi" "match_all"])
+(import "list" ["map" "reduce"])
+
+(let NUMERIC (re "\\s?\\d+"))
+(let MATCH_NUMS (re "\\s*(\\d+)\\d*"))
+(let MATCH_SYMS (re "\\s*(\\+|\\*)\\s*"))
+
+(let IS_DEBUG? true)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn seq [A B]
+    (fn _next [acc ix]
+        (cond (< ix B)
+            (_next (list:push acc ix) (+ ix 1))
+            acc
+        )
+    )
+    (_next [] A)
+)
+
+(fn solve [IN]
+    (let nums (get IN 0))
+    (let ops (get IN 1))
+    (let operands (seq 0 (len nums)))
+    (fn _next [acc ix]
+        (cond (>= ix (len ops))
+            acc
+            (
+                (let op (get ops ix))
+                (let res (list:reduce
+                    operands
+                    (fn [acc2 opix]
+                        (let operand (get (get nums opix) ix))
+                        (cond (= op "+")
+                            (+ acc2 operand)
+                            (* acc2 operand)
+                        )
+                    )
+                    (cond (= op "+") 0 1)
+                ))
+                (_next (list:push acc res) (+ ix 1))
+            )
+        )
+    )
+    (_next [] 0)
+)
+
+(fn solve2 [lines]
+    (fn _next [acc ops ix]
+        0
+    )
+    (_next [] [] 0)
+)
+
+((fn main []
+    (let input (read_input_file "INPUT-TST"))
+    ; (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let IN (list:reduce lines (fn [acc line]
+        (cond (match? NUMERIC line)
+            (
+                (let mtch_nums (list:reduce (strings:match_all MATCH_NUMS line) (fn [acc pair]
+                    (list:push acc (strings:atoi (get pair 1)))
+                ) []))
+                (println "mtch_nums: " mtch_nums)
+                (put acc 0 (list:push (get acc 0) mtch_nums))
+            )
+            (
+                (let mtch_syms (list:reduce (strings:match_all MATCH_SYMS line) (fn [acc pair]
+                    (list:push acc (get pair 1))
+                ) []))
+                (println "mtch_syms: " mtch_syms)
+                (put acc 1 mtch_syms)
+            )
+        )
+        acc
+    ) [[] null]))
+
+    (cond IS_DEBUG? (println "input: " IN))
+    (let res1 (list:reduce (solve IN) (fn [acc el] (+ acc el)) 0))
+    (println "res1=" res1)
+
+    (let res2 (solve2 lines))
+    (println "res2=" res2)
+))
