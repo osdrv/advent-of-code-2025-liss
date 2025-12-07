@@ -1,0 +1,70 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+
+(let IS_DEBUG? true)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn find_fn [arr fun]
+    (fn _next [ix]
+        (cond (>= ix (len arr))
+            -1
+            (cond (fun (get arr ix))
+                ix
+                (_next (+ ix 1))
+            )
+        )
+    )
+    (_next 0)
+)
+
+(fn count_splits [lines B]
+    (let height (len lines))
+    (let each_x (list:seq 0 (len B)))
+    (fn _next [cnt y]
+        (cond (>= y height)
+            cnt
+            (
+                (let splits (list:reduce each_x (fn [acc x]
+                    (let ch (get (get lines y) x))
+                    (cond (and (= ch "^") (> (get B x) 0))
+                        (
+                            (let inc (get B x))
+                            (put B x (- (get B x) inc))
+                            (cond (> x 0) (put B (- x 1) (+ (get B (- x 1)) inc)))
+                            (cond (< x (- (len B) 1)) (put B (+ x 1) (+ (get B (+ x 1)) inc)))
+                            (+ acc 1)
+                        )
+                        acc
+                    )
+                ) 0))
+                (println B)
+                (_next (+ cnt splits) (+ y 1))
+            )
+        )
+    )
+    (_next 0 1)
+)
+
+((fn main []
+    ;(let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let S (find_fn (get lines 0) (fn [ch] (= ch "S"))))
+    (cond IS_DEBUG? (println "start=" S))
+    (let B (* [0] (len (get lines 0))))
+    (put B S 1)
+    (cond IS_DEBUG? (println B))
+    (let res1 (count_splits lines B))
+    (println "res1=" res1)
+
+    (let res2 (list:reduce B (fn [acc el] (+ acc el)) 0))
+    (println "res2=" res2)
+))
