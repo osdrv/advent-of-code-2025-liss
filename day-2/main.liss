@@ -1,6 +1,7 @@
 (import "strings" ["split" "atoi" "range"])
 (import "list" ["map" "reduce" "push"])
 (import "math" ["ceil" "floor"])
+(import "test_utils" ["benchmark"] as tu)
 
 (let IS_DEBUG? false)
 
@@ -115,7 +116,7 @@
     (sum_list (keys res))
 )
 
-((fn main []
+(tu:benchmark "day 2" (fn main []
     ; (let input (read_input_file "INPUT-TST"))
     (let input (read_input_file "INPUT"))
     (let lines (strings:split input "\n"))

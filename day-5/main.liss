@@ -1,6 +1,7 @@
 (import "strings" ["split" "atoi"])
 (import "list" ["map" "reduce"])
 (import "math" ["max" "min"])
+(import "test_utils" ["benchmark"] as tu)
 
 (let IS_DEBUG? false)
 
@@ -88,7 +89,7 @@
     (_next [(head rcp)] 1)
 )
 
-((fn main []
+(tu:benchmark "day 5" (fn main []
     ;(let input (read_input_file "INPUT-TST"))
     (let input (read_input_file "INPUT"))
     (let lines (strings:split input "\n"))

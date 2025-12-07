@@ -1,6 +1,7 @@
 (import "strings" ["split" "atoi"])
 (import "list" ["map" "reduce"])
 (import "math" ["abs"])
+(import "test_utils" ["benchmark"] as tu)
 
 (let IS_DEBUG? false)
 
@@ -20,7 +21,7 @@
     )
 )
 
-((fn main []
+(tu:benchmark "day 1" (fn main []
     (let input (read_input_file "INPUT"))
     (let lines (strings:split input "\n"))
 
