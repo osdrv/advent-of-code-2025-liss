@@ -1,7 +1,7 @@
 (import "strings" ["split" "atoi"])
-(import "list" ["map" "reduce"])
+(import "list" ["map" "reduce" "seq" "sum"])
 
-(let IS_DEBUG? true)
+(let IS_DEBUG? false)
 
 (fn read_input_file [src]
     (let f (fopen src))
@@ -43,7 +43,7 @@
                         acc
                     )
                 ) 0))
-                (println B)
+                (cond IS_DEBUG? (println B))
                 (_next (+ cnt splits) (+ y 1))
             )
         )
@@ -59,12 +59,13 @@
 
     (let S (find_fn (get lines 0) (fn [ch] (= ch "S"))))
     (cond IS_DEBUG? (println "start=" S))
+    ; B would be mutated during the execution
     (let B (* [0] (len (get lines 0))))
     (put B S 1)
     (cond IS_DEBUG? (println B))
     (let res1 (count_splits lines B))
     (println "res1=" res1)
 
-    (let res2 (list:reduce B (fn [acc el] (+ acc el)) 0))
+    (let res2 (list:sum B))
     (println "res2=" res2)
 ))
