@@ -58,7 +58,9 @@
         )
     )
     (let DD (_next [] 0 1))
-    (tu:benchmark "rank_dist_all:sort" (fn [] (list:quicksort_fn_mut DD (fn [A B] (< (get A 2) (get B 2))))))
+    (tu:benchmark "rank_dist_all:sort" (fn []
+        (list:sort_fn DD (fn [A B] (< (get A 2) (get B 2))))
+    ))
 )
 
 (fn root [F ix]
@@ -68,10 +70,7 @@
     )
 )
 
-(fn mk_forest [C D max_conn]
-    (let _RD (tu:benchmark "rank_dist_all" (fn [] (rank_dist_all D))))
-    (let RD (cond (= max_conn -1) _RD (list:range _RD 0 max_conn)))
-    (cond IS_DEBUG? (println "RD=" RD))
+(fn mk_forest [C D RD]
     (let F (* [-1] (len D)))
     (fn _next [cntr ix]
         (cond (>= ix (len RD))
@@ -123,7 +122,8 @@
     (let D (tu:benchmark "compute distances" (fn [] (dist_all C))))
     (cond IS_DEBUG? (println "D=" D))
 
-    (let FL (tu:benchmark "make forest" (fn [] (mk_forest C D 1000))))
+    (let RD (tu:benchmark "rank_dist_all" (fn [] (rank_dist_all D))))
+    (let FL (tu:benchmark "make forest" (fn [] (mk_forest C D (list:range RD 0 1000)))))
     (let F (get FL 0))
     (cond IS_DEBUG? (println "F=" F))
 
@@ -133,7 +133,7 @@
     (let res1 (* (len (get RF 0)) (len (get RF 1)) (len (get RF 2))))
     (println "res1=" res1)
 
-    (let FL2 (mk_forest C D -1))
+    (let FL2 (mk_forest C D RD))
     (let L (get FL2 1))
     (cond IS_DEBUG? (println "L=" L))
     (let res2 (* (get (get C (get L 0)) 0) (get (get C (get L 1)) 0)))
