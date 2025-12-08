@@ -1,0 +1,126 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+(import "math" ["abs"])
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn square [x] (* x x) )
+
+(fn dist [A B]
+    (list:sum (list:map [
+        (- (get A 0) (get B 0))
+        (- (get A 1) (get B 1))
+        (- (get A 2) (get B 2))
+    ] square))
+)
+
+(fn dist_all [C]
+    (list:map C (fn [A]
+        (list:map (list:seq 0 (len C)) (fn [bix]
+            (let B (get C bix))
+            (dist A B)
+        ))
+    ))
+)
+
+(fn rank_dist_all [D]
+    (list:sort_fn (list:reduce (list:seq 0 (len D)) (fn [acc y]
+        (list:reduce (list:seq (+ y 1) (len D)) (fn [acc x]
+            (list:push acc [x y (get (get D y) x)])
+        ) acc)
+    ) []) (fn [A B]
+        (< (get A 2) (get B 2))
+    ))
+)
+
+(fn root [F ix]
+    (cond (= (get F ix) -1)
+        ix
+        (root F (get F ix))
+    )
+)
+
+(fn count_roots [F]
+    (list:reduce F (fn [acc v]
+        (+ acc (cond (= v -1) 1 0))
+    ) 0)
+)
+
+(fn mk_forest [C D max_conn]
+    (let _RD (rank_dist_all D))
+    (let RD (cond (= max_conn -1) _RD (list:range _RD 0 max_conn)))
+    (cond IS_DEBUG? (println "RD=" RD))
+    (let F (* [-1] (len D)))
+    (fn _next [ix]
+        (cond (>= ix (len RD))
+            null
+            (
+                (let rd (get RD ix))
+                (let x (get rd 0))
+                (let y (get rd 1))
+                (let d (get rd 2))
+                (cond IS_DEBUG? (println "connecting " (get C x) " and " (get C y)))
+                (let rx (root F x))
+                (let ry (root F y))
+                (switch
+                    [(= ry rx) true]
+                    [(= ry y) (put F y rx)]
+                    [(= rx x) (put F x ry)]
+                    [* (put F ry x)]
+                )
+                (cond (= (count_roots F) 1)
+                    rd
+                    (_next (+ ix 1))
+                )
+            )
+        )
+    )
+    (let last_rd (_next 0))
+    [F last_rd]
+)
+
+(fn rank_forest [F]
+    (let RF (* [[]] (len F)))
+    (list:map (list:seq 0 (len F)) (fn [ix]
+        (let r (root F ix))
+        (put RF r (list:push (get RF r) ix))
+    ))
+    (list:sort_fn RF (fn [a b] (> (len a) (len b))))
+)
+
+((fn main []
+    ;(let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+    (let C (list:map lines (fn [line]
+        (list:map (strings:split line ",") strings:atoi)
+    )))
+    (cond IS_DEBUG? (println "C=" C))
+
+    (let D (dist_all C))
+    (cond IS_DEBUG? (println "D=" D))
+
+    (let FL (mk_forest C D 1000))
+    (let F (get FL 0))
+    (cond IS_DEBUG? (println "F=" F))
+
+    (let RF (rank_forest F))
+    (cond IS_DEBUG? (println "RF=" RF))
+
+    (let res1 (* (len (get RF 0)) (len (get RF 1)) (len (get RF 2))))
+    (println "res1=" res1)
+
+    (let FL2 (mk_forest C D -1))
+    (let L (get FL2 1))
+    (cond IS_DEBUG? (println "L=" L))
+    (let res2 (* (get (get C (get L 0)) 0) (get (get C (get L 1)) 0)))
+    (println "res2=" res2)
+))
