@@ -22,17 +22,6 @@
     )
 )
 
-(let KEY_BASE 1000000)
-(fn key [x y]
-    (+ (* y KEY_BASE) x)
-)
-
-(fn unkey [k]
-    (let x (% k KEY_BASE))
-    (let y (/ k KEY_BASE))
-    [x y]
-)
-
 (fn dist_all [C]
     (let bixs (list:seq 0 (len C)))
     (list:map C (fn [A]
@@ -59,7 +48,7 @@
     )
     (let DD (_next [] 0 1))
     (tu:benchmark "rank_dist_all:sort" (fn []
-        (list:sort_fn DD (fn [A B] (< (get A 2) (get B 2))))
+        (list:quicksort_fn_mut DD (fn [A B] (< (get A 2) (get B 2))))
     ))
 )
 
