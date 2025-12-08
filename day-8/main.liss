@@ -1,6 +1,7 @@
 (import "strings" ["split" "atoi"])
 (import "list" ["map" "reduce"])
 (import "math" ["abs"])
+(import "test_utils" ["benchmark"] as tu)
 
 (let IS_DEBUG? false)
 
@@ -14,16 +15,28 @@
 (fn square [x] (* x x) )
 
 (fn dist [A B]
-    (list:sum (list:map [
-        (- (get A 0) (get B 0))
-        (- (get A 1) (get B 1))
-        (- (get A 2) (get B 2))
-    ] square))
+    (+
+        (square (- (get A 0) (get B 0)))
+        (square (- (get A 1) (get B 1)))
+        (square (- (get A 2) (get B 2)))
+    )
+)
+
+(let KEY_BASE 1000000)
+(fn key [x y]
+    (+ (* y KEY_BASE) x)
+)
+
+(fn unkey [k]
+    (let x (% k KEY_BASE))
+    (let y (/ k KEY_BASE))
+    [x y]
 )
 
 (fn dist_all [C]
+    (let bixs (list:seq 0 (len C)))
     (list:map C (fn [A]
-        (list:map (list:seq 0 (len C)) (fn [bix]
+        (list:map bixs (fn [bix]
             (let B (get C bix))
             (dist A B)
         ))
@@ -31,13 +44,21 @@
 )
 
 (fn rank_dist_all [D]
-    (list:sort_fn (list:reduce (list:seq 0 (len D)) (fn [acc y]
-        (list:reduce (list:seq (+ y 1) (len D)) (fn [acc x]
-            (list:push acc [x y (get (get D y) x)])
-        ) acc)
-    ) []) (fn [A B]
-        (< (get A 2) (get B 2))
-    ))
+    (let lenD (len D))
+    (fn _next [acc y x]
+        (cond (>= y lenD)
+            acc
+            (cond (>= x lenD)
+                (_next acc (+ y 1) (+ y 2))
+                (
+                    (let _acc (+ acc [[x y (get (get D y) x)]]))
+                    (_next _acc y (+ x 1))
+                )
+            )
+        )
+    )
+    (let DD (_next [] 0 1))
+    (tu:benchmark "rank_dist_all:sort" (fn [] (list:quicksort_fn_mut DD (fn [A B] (< (get A 2) (get B 2))))))
 )
 
 (fn root [F ix]
@@ -47,42 +68,36 @@
     )
 )
 
-(fn count_roots [F]
-    (list:reduce F (fn [acc v]
-        (+ acc (cond (= v -1) 1 0))
-    ) 0)
-)
-
 (fn mk_forest [C D max_conn]
-    (let _RD (rank_dist_all D))
+    (let _RD (tu:benchmark "rank_dist_all" (fn [] (rank_dist_all D))))
     (let RD (cond (= max_conn -1) _RD (list:range _RD 0 max_conn)))
     (cond IS_DEBUG? (println "RD=" RD))
     (let F (* [-1] (len D)))
-    (fn _next [ix]
+    (fn _next [cntr ix]
         (cond (>= ix (len RD))
             null
             (
                 (let rd (get RD ix))
                 (let x (get rd 0))
                 (let y (get rd 1))
-                (let d (get rd 2))
                 (cond IS_DEBUG? (println "connecting " (get C x) " and " (get C y)))
                 (let rx (root F x))
                 (let ry (root F y))
-                (switch
-                    [(= ry rx) true]
-                    [(= ry y) (put F y rx)]
-                    [(= rx x) (put F x ry)]
-                    [* (put F ry x)]
-                )
-                (cond (= (count_roots F) 1)
+                (let delta (switch
+                    [(= ry rx) 0]
+                    [(= ry y) ((put F y rx) 1)]
+                    [(= rx x) ((put F x ry) 1)]
+                    [* ((put F ry x) 1)]
+                ))
+                (let _cntr (- cntr delta))
+                (cond (= _cntr 1)
                     rd
-                    (_next (+ ix 1))
+                    (_next _cntr (+ ix 1))
                 )
             )
         )
     )
-    (let last_rd (_next 0))
+    (let last_rd (_next (len F) 0))
     [F last_rd]
 )
 
@@ -95,7 +110,7 @@
     (list:sort_fn RF (fn [a b] (> (len a) (len b))))
 )
 
-((fn main []
+(tu:benchmark "day 8" (fn main []
     ;(let input (read_input_file "INPUT-TST"))
     (let input (read_input_file "INPUT"))
     (let lines (strings:split input "\n"))
@@ -105,10 +120,10 @@
     )))
     (cond IS_DEBUG? (println "C=" C))
 
-    (let D (dist_all C))
+    (let D (tu:benchmark "compute distances" (fn [] (dist_all C))))
     (cond IS_DEBUG? (println "D=" D))
 
-    (let FL (mk_forest C D 1000))
+    (let FL (tu:benchmark "make forest" (fn [] (mk_forest C D 1000))))
     (let F (get FL 0))
     (cond IS_DEBUG? (println "F=" F))
 
