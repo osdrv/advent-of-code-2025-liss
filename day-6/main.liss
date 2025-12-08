@@ -1,4 +1,4 @@
-(import "strings" ["split" "atoi" "match_all" "trim_left" "trim_right"])
+(import "strings" ["split" "atoi" "match_all"])
 (import "list" ["map" "reduce" "seq"])
 (import "test_utils" ["benchmark"] as tu)
 
@@ -56,12 +56,12 @@
                 (list:push acc (_finalize op ops))
             )
             (
-                (let vert (strings:trim_left (strings:trim_right
+                (let vert (strings:trim 
                     (strings:join
                     (list:reduce v_ixs (fn [acc_v ix_v]
                         (list:push acc_v (get (get lines ix_v) ix_h))
                     ) [])
-                "") " ") " "))
+                "") " "))
                 (cond IS_DEBUG? (println "vert='" vert "'"))
                 (let _op (get (last lines) ix_h))
                 (cond (= vert "")
