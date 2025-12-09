@@ -1,0 +1,408 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+(import "math" ["max" "abs"])
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn sq [P1 P2]
+    (*
+        (+ (math:abs (- (get P1 0) (get P2 0))) 1)
+        (+ (math:abs (- (get P1 1) (get P2 1))) 1)
+    )
+)
+
+(fn key [P]
+    (+ (get P 0) (* (get P 1) 100000))
+)
+
+(fn mk_sides [C]
+    (let lenC (len C))
+    (fn _next [acc ix]
+        (cond (>= ix lenC)
+            acc
+            (_next (list:push acc [(get C (- ix 1)) (get C ix)]) (+ ix 1))
+        )
+    )
+    (_next [] 1)
+)
+
+(fn overlap? [ra rb]
+    (or
+        (and (>= (head ra) (head rb)) (<= (head ra) (last rb)))
+        (and (>= (last ra) (head rb)) (<= (last ra) (last rb)))
+        (and (>= (head rb) (head ra)) (<= (head rb) (last ra)))
+        (and (>= (last rb) (head ra)) (<= (last rb) (last ra)))
+    )
+)
+
+(fn intersect? [L1 L2]
+    (let P11 (get L1 0))
+    (let P12 (get L1 1))
+    (let P21 (get L2 0))
+    (let P22 (get L2 1))
+    (and
+        (overlap?
+            [(math:min (get P11 0) (get P12 0)) (math:max (get P11 0) (get P12 0))]
+            [(math:min (get P21 0) (get P22 0)) (math:max (get P21 0) (get P22 0))]
+        )
+        (overlap?
+            [(math:min (get P11 1) (get P12 1)) (math:max (get P11 1) (get P12 1))]
+            [(math:min (get P21 1) (get P22 1)) (math:max (get P21 1) (get P22 1))]
+        )
+    )
+)
+
+(fn find_max_area [C enfIn]
+    (let lenC (len C))
+    (let CM (list:reduce C (fn [acc P]
+        (put acc (key P) null)
+        acc
+    ) (dict)))
+
+    (let D (list:reduce C (fn [acc P]
+        (put acc 0 (math:min (get acc 0) (get P 0)))
+        (put acc 1 (math:min (get acc 1) (get P 1)))
+        (put acc 2 (math:max (get acc 2) (get P 0)))
+        (put acc 3 (math:max (get acc 3) (get P 1)))
+        acc
+    ) [99999999 999999999 -1 -1]))
+
+    (cond IS_DEBUG? (println "D=" D))
+
+    (let S (mk_sides C))
+    (cond IS_DEBUG? (println "S=" S))
+
+    (let CACHE (dict))
+    (fn _inside? [P]
+        (let PK (key P))
+        (cond (not (has? CACHE PK))
+            (
+                (let beams [
+                    [[(- (get D 0) 1) (get P 1)] P]
+                    [P [(+ (get D 2) 1) (get P 1)]]
+                    [[(get P 0) (- (get D 1) 1)] P]
+                    [P [(get P 0) (+ (get D 3) 1)]]
+                ])
+
+                (fn _intersect_any [B]
+                    (fn _next [ix]
+                        (cond (>= ix (len S))
+                            false
+                            (cond (intersect? B (get S ix))
+                                true
+                                (_next (+ ix 1))
+                            )
+                        )
+                    )
+                    (_next 0)
+                )
+
+                (let res (and
+                    (_intersect_any (get beams 0))
+                    (_intersect_any (get beams 1))
+                    (_intersect_any (get beams 2))
+                    (_intersect_any (get beams 3))
+                ))
+                ;(cond IS_DEBUG? (println "P=" P " is " (cond res "inside" "not inside")))
+                (put CACHE PK res)
+            )
+        )
+        (get CACHE PK)
+    )
+
+    (list:reduce (list:seq 0 lenC) (fn [maxSq i]
+        (list:reduce (list:seq (+ 1 i) lenC) (fn [maxSq j]
+            (let Pi (get C i))
+            (let Pj (get C j))
+            (let sqIJ (sq Pi Pj))
+            (cond enfIn
+                (
+                    (let Px [(get Pi 0) (get Pj 1)])
+                    (let Py [(get Pj 0) (get Pi 1)])
+                    (cond (and (_inside? Px) (_inside? Py))
+                        (
+                            ;(cond IS_DEBUG? (println "Pi=" Pi " Pj=" Pj " SQ=" sqIJ))
+                            (math:max maxSq sqIJ)
+                        )
+                        maxSq
+                    )
+                )
+                (
+                    ;(cond IS_DEBUG? (println "Pi=" Pi " Pj=" Pj " SQ=" sqIJ))
+
+                    ; (cond (> sqIJ maxSq) (println "New max SQ: " sqIJ " between " Pi " and " Pj))
+                    (math:max maxSq sqIJ)
+                )
+            )
+        ) maxSq)
+    ) 0)
+)
+
+; The result has the following structure: 
+; 
+; [ [ [ x y1 y2 ] ]
+;   [ [ y x1 x2 ] ] ]
+; 
+(fn build_vh [C]
+    (let lenC (len C))
+    (fn _next [VH ix]
+        (cond (>= ix lenC)
+            VH
+            (
+                (let prev (get C (- ix 1)))
+                (let cur  (get C ix))
+                (cond (= (get prev 0) (get cur 0))
+                    (
+                        (put VH 0 (list:push (get VH 0)
+                            [
+                                (get cur 0)
+                                (math:min (get prev 1) (get cur 1))
+                                (math:max (get prev 1) (get cur 1))
+                            ]
+                        ))
+                        (_next VH (+ ix 1))
+                    )
+                    (cond (= (get prev 1) (get cur 1))
+                        (
+                            (put VH 1 (list:push (get VH 1)
+                                [
+                                    (get cur 1)
+                                    (math:min (get prev 0) (get cur 0))
+                                    (math:max (get prev 0) (get cur 0))
+                                ]
+                            ))
+                            (_next VH (+ ix 1))
+                        )
+                        (raise! "should not happen")
+                    )
+                )
+                VH
+            )
+        )
+    )
+    (_next [[] []] 1)
+)
+
+(fn cnt_cross [Pi Pj V H dbg]
+    (let lenV (len V))
+    (let lenH (len H))
+    (let res (cond (= (get Pi 0) (get Pj 0))
+        (
+            ; vertical line matches against horizontal ranges
+            (let x (get Pi 0))
+            (let y1 (math:min(get Pi 1) (get Pj 1)))
+            (let y2 (math:max(get Pi 1) (get Pj 1)))
+            (let hor_ix (list:find_bin_fn H (fn [hor]
+                ; hor has a structure: [y x1 x2]
+                (>= (get hor 0) y1)
+            )))
+            (fn _next_hor [sum ix]
+                (let h_ix (get H ix))
+                (cond (>= ix lenH)
+                    sum
+                    (cond (> (get h_ix 0) y2)
+                        sum
+                        (
+                            (let cross (and (>= x (get h_ix 1)) (<= x (get h_ix 2))))
+                            (cond (and cross dbg) (println "cross: Pi=" Pi " Pj=" Pj " hor=" h_ix))
+                            (_next_hor (+ sum (cond cross 1 0)) (+ ix 1))
+                        )
+                    )
+                )
+            )
+            (let nhx (_next_hor 0 hor_ix))
+            nhx
+        )
+        (
+            ; horizontal line matches against vertical ranges
+            (let y (get Pi 1))
+            (let x1 (math:min(get Pi 0) (get Pj 0)))
+            (let x2 (math:max(get Pi 0) (get Pj 0)))
+            (let ver_ix (list:find_bin_fn V (fn [ver]
+                ; ver has a structure: [x y1 y2]
+                (>= (get ver 0) x1)
+            )))
+            (fn _next_ver [sum ix]
+                (let v_ix (get V ix))
+                (cond (>= ix lenV)
+                    sum
+                    (cond (> (get v_ix 0) x2)
+                        sum
+                        (
+                            (let cross (and (>= y (get v_ix 1)) (<= y (get v_ix 2))))
+                            (cond (and cross dbg) (println "cross: Pi=" Pi " Pj=" Pj " ver=" v_ix))
+                            (_next_ver (+ sum (cond cross 1 0)) (+ ix 1))
+                        )
+                    )
+                )
+            )
+            (let nvx (_next_ver 0 ver_ix))
+            nvx
+        )
+    ))
+    ;(println "Pi:" Pi " -> Pj:" Pj " crosses " res " times")
+    res
+)
+
+; Spawn 4 beams in 4 directions and see if either hits no edges
+(fn inside? [P V H D]
+    (let res (and
+        (> (cnt_cross P [(get P 0) (- (get D 1) 1)] V H false) 0)
+        (> (cnt_cross P [(get P 0) (+ (get D 3) 1)] V H false) 0)
+        (> (cnt_cross P [(- (get D 0) 1) (get P 1)] V H false) 0)
+        (> (cnt_cross P [(+ (get D 2) 1) (get P 1)] V H false) 0)
+    ))
+    res
+)
+
+(fn find_max_area2 [C]
+    (let VH (build_vh C))
+    (let V (list:sort_fn (get VH 0) (fn [a b] (< (get a 0) (get b 0)))))
+    (let H (list:sort_fn (get VH 1) (fn [a b] (< (get a 0) (get b 0)))))
+    (cond IS_DEBUG? (println "V=" V))
+    (cond IS_DEBUG? (println "H=" H))
+    (let D (list:reduce C (fn [acc V]
+        (put acc 0 (math:min (get acc 0) (get V 0)))
+        (put acc 1 (math:min (get acc 1) (get V 1)))
+        (put acc 2 (math:max (get acc 2) (get V 0)))
+        (put acc 3 (math:max (get acc 3) (get V 1)))
+        acc
+    ) [999999999 999999999 -1 -1]))
+
+    (let lenC (len C))
+    (list:reduce (list:seq 0 lenC) (fn [maxSQ j]
+        (list:reduce (list:seq (+ j 1) lenC) (fn [maxSQ i]
+            (let Pi (get C i))
+            (let Pj (get C j))
+            (let SQ (sq Pi Pj))
+            (let Px [(get Pi 0) (get Pj 1)])
+            (let Py [(get Pj 0) (get Pi 1)])
+            ; TODO: remove me!
+            (cond (= SQ 1452422268)
+                (
+                    (println "found the right square!")
+                    (println "Pi Px cross: " (cnt_cross Pi Px V H true))
+                    (println "Pi Py cross: " (cnt_cross Pi Py V H true))
+                    (println "Pj Px cross: " (cnt_cross Pj Px V H true))
+                    (println "Pj Py cross: " (cnt_cross Pj Py V H true))
+                    (println "Pj=" Pj " Py=" Py)
+                    (println "Px inside: " (inside? Px V H D))
+                    (println "Py inside: " (inside? Py V H D))
+                )
+            )
+            (cond IS_DEBUG? (println "consider SQ=" SQ))
+            
+            (cond (> SQ maxSQ)
+                (
+                    (cond (or 
+                        (> (cnt_cross Pi Px V H false) 2)
+                        (> (cnt_cross Pi Py V H false) 2)
+                        (> (cnt_cross Pj Px V H false) 2)
+                        (> (cnt_cross Pj Py V H false) 2)
+                        (not (inside? Px V H D))
+                        (not (inside? Py V H D))
+                    )
+                        maxSQ
+                        (
+                            (cond (> SQ maxSQ) (println "New max SQ: " SQ " between " Pi " and " Pj))
+                            (math:max maxSQ SQ)
+                        )
+                    )
+                )
+                maxSQ
+            )
+        ) maxSQ)
+    ) 0)
+)
+
+
+(fn get_max_sq [P0 C V H D accept]
+    (let part (list:filter C accept))
+    (list:reduce part (fn [maxSQ P1]
+        (let SQ (sq P0 P1))
+        (let Px [(get P0 0) (get P1 1)])
+        (let Py [(get P1 0) (get P0 1)])
+        (cond (> SQ maxSQ)
+            (cond (and (inside? Px V H D) (inside? Py V H D))
+                (
+                    (println "New max SQ: " SQ " between " P0 " and " P1)
+                    SQ
+                )
+                maxSQ
+            )
+            maxSQ
+        )
+    ) 0)
+)
+
+(fn debug [C]
+    (list:reduce (list:seq 1 (len C)) (fn [maxD ix]
+        (let d (+
+            (math:abs (- (get (get C ix) 0) (get (get C (- ix 1)) 0)))
+            (math:abs (- (get (get C ix) 1) (get (get C (- ix 1)) 1)))
+        ))
+        (cond (> d maxD)
+            (
+                (println "New max dist " d " between " (get C ix) " and " (get C (- ix 1)))
+                d
+            )
+            maxD
+        )
+    ) 0)
+
+    (let VH (build_vh C))
+    (let V (list:sort_fn (get VH 0) (fn [a b] (< (get a 0) (get b 0)))))
+    (let H (list:sort_fn (get VH 1) (fn [a b] (< (get a 0) (get b 0)))))
+    (cond IS_DEBUG? (println "V=" V))
+    (cond IS_DEBUG? (println "H=" H))
+    (let D (list:reduce C (fn [acc V]
+        (put acc 0 (math:min (get acc 0) (get V 0)))
+        (put acc 1 (math:min (get acc 1) (get V 1)))
+        (put acc 2 (math:max (get acc 2) (get V 0)))
+        (put acc 3 (math:max (get acc 3) (get V 1)))
+        acc
+    ) [999999999 999999999 -1 -1]))
+
+    (let P1 [94737 48449])
+    (let P2 [94737 50322])
+
+    (let S1 (get_max_sq P1 C V H D (fn [Vx] (< (get Vx 1) (get P1 1)))))
+    (println "S1=" S1)
+    (let S2 (get_max_sq P2 C V H D (fn [Vx] (> (get Vx 1) (get P2 1)))))
+    (println "S2=" S2)
+)
+
+((fn main []
+    ;(let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let _C (list:map lines (fn [line]
+        (let nn (strings:split line ","))
+        [
+            (strings:atoi (get nn 0))
+            (strings:atoi (get nn 1))
+        ]
+    )))
+    (let C (list:push _C (get _C 0)))
+    (cond IS_DEBUG? (println "C=" C))
+
+    (let res1 (find_max_area C false))
+    (println "res1=" res1)
+
+    ; 4602912072 is too high
+    ; 409362048 is too low
+    ; 1437176532 is too low
+    (let res2 (find_max_area2 C))
+    (println "res2=" res2)
+
+    (debug C)
+))

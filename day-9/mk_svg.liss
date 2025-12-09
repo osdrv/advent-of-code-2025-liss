@@ -1,0 +1,106 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+(import "math" ["max" "abs"])
+
+(let IS_DEBUG? true)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(fn mk_path [C x0 y0]
+    (list:reduce C (fn [acc V]
+        (+ acc
+            (cond (> (len acc) 0) " " "")
+            (str (- (get V 0) x0))
+            ","
+            (str (- (get V 1) y0))
+        )
+    ) "")
+)
+
+((fn main []
+    ;(let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    ; (cond IS_DEBUG? (println lines))
+
+    (let C (list:map lines (fn [line]
+        (let nn (strings:split line ","))
+        [
+            (strings:atoi (get nn 0))
+            (strings:atoi (get nn 1))
+        ]
+    )))
+    (let D (list:reduce C (fn [acc V]
+        (put acc 0 (math:min (get acc 0) (get V 0)))
+        (put acc 1 (math:min (get acc 1) (get V 1)))
+        (put acc 2 (math:max (get acc 2) (get V 0)))
+        (put acc 3 (math:max (get acc 3) (get V 1)))
+        acc
+    ) [999999999 999999999 -1 -1]))
+
+    ; (println D)
+
+    (let width  (- (get D 2) (get D 0)))
+    (let height (- (get D 3) (get D 1)))
+
+    (let path (mk_path C (get D 0) (get D 1)))
+    ; (println "path=" path)
+
+    (let sq1 (list:map [[86507 82573] [86507 13266] [17804 13266] [17804 82573] ] (fn [P]
+        [
+            (- (get P 0) (get D 0))
+            (- (get P 1) (get D 1))
+        ]
+    )))
+    (let sqs1 (strings:join (list:map sq1 (fn [P]
+        (+ (str (get P 0)) "," (str (get P 1)))
+    )) " "))
+
+    (let sq2 (list:map [[5561 50322] [5561 66434] [94737 66434] [94737 50322]] (fn [P]
+        [
+            (- (get P 0) (get D 0))
+            (- (get P 1) (get D 1))
+        ]
+    )))
+    (let sqs2 (strings:join (list:map sq2 (fn [P]
+        (+ (str (get P 0)) "," (str (get P 1)))
+    )) " "))
+
+    (fn rect_path [D P1 P2]
+        (let path [
+            P1
+            [(get P1 0) (get P2 1)]
+            P2
+            [(get P2 0) (get P1 1)]
+        ])
+        (strings:join (list:map (list:map path (fn [V]
+            [
+                (- (get V 0) (get D 0))
+                (- (get V 1) (get D 1))
+            ]
+        )) (fn [V]
+            (+ (str (get V 0)) "," (str (get V 1)))
+        )) " ")
+    )
+
+
+    (println (+
+        "<svg viewBox=\"0 0 " (str width) " " (str height)"\" xmlns=\"http://www.w3.org/2000/svg\">\n"
+        "  <polygon points=\"" path "\" style=\"fill:lime\" />\n"
+        (strings:join (list:map 
+            (list:map C (fn [P] [(- (get P 0) (get D 0)) (- (get P 1) (get D 1))]))
+            (fn [P]
+                (+ "  <circle cx=\"" (str (get P 0)) "\" cy=\"" (str (get P 1)) "\" r=\"300\" style=\"fill:red\" />")
+            )
+        ) "\n")
+        "  <polygon points=\"" (rect_path D [94737 50322] [4615 66437]) "\" style=\"fill:green\" />"
+        "  <polygon points=\"" (rect_path D [94737 50322] [5561 66437]) "\" style=\"fill:blue\" />"
+        "</svg>"
+    ))
+
+))
