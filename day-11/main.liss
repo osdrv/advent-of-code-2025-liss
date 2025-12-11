@@ -1,0 +1,99 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+(import "test_utils" ["benchmark"] as tu)
+
+(let IS_DEBUG? false)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(let YOU "you")
+(let OUT "out")
+(let SVR "svr")
+(let DAC "dac")
+(let FFT "fft")
+
+
+(let conn_re (re "(\\w+): (.+)"))
+(fn parse_conns [S]
+    (let mtch (match conn_re S))
+    (let from (get mtch 1))
+    (let rest (get mtch 2))
+    (let dirs (strings:split rest " "))
+    [from dirs]
+)
+
+(fn count_uniq_paths [G cur end cache]
+    (cond (= cur end)
+        1
+        (cond (has? cache cur)
+            (get cache cur)
+            (
+                (let cnt (cond (not (has? G cur))
+                    0
+                    (list:reduce (get G cur) (fn [acc next]
+                        (+ acc (count_uniq_paths G next end cache))
+                    ) 0)
+                ))
+                (put cache cur cnt)
+                cnt
+            )
+        )
+    )
+)
+
+(fn count_uniq_paths2 [G cur end has_fft has_dac cache]
+    (cond (= cur end)
+        (cond (and has_fft has_dac) 1 0)
+        (
+            (let key (+ cur ":" (str has_fft) ":" (str has_dac)))
+            (cond (has? cache key)
+                (get cache key)
+                (
+                    (let _has_fft (or has_fft (= cur FFT)))
+                    (let _has_dac (or has_dac (= cur DAC)))
+                    (let cnt (cond (not (has? G cur))
+                        0
+                        (list:reduce (get G cur) (fn [acc next]
+                            (+ acc (count_uniq_paths2 G next end _has_fft _has_dac cache))
+                        ) 0)
+                    ))
+                    (put cache key cnt)
+                    cnt
+                )
+            )
+        )
+    )
+)
+
+(tu:benchmark "day 11" (fn main []
+    ;(let input (read_input_file "INPUT-TST2"))
+    (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (let G (list:reduce lines (fn [acc line]
+        (let conns (parse_conns line))
+        (cond IS_DEBUG? (println conns))
+        (let from (get conns 0))
+        (let dirs (get conns 1))
+        (cond (not (has? acc from))
+            (put acc from [])
+        )
+        (let prev (get acc from))
+        (put acc from (+ prev dirs))
+        acc
+    ) (dict)))
+    (cond IS_DEBUG? (println G))
+
+    (let res1 (count_uniq_paths G YOU OUT (dict)))
+    (println "res1=" res1)
+
+    (let res2 (count_uniq_paths2 G SVR OUT false false (dict)))
+    (println "res2=" res2)
+
+))
