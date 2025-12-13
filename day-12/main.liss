@@ -1,0 +1,124 @@
+(import "strings" ["split" "atoi"])
+(import "list" ["map" "reduce"])
+(import "assert")
+
+(let IS_DEBUG? true)
+
+(fn read_input_file [src]
+    (let f (fopen src))
+    (let data (fread_all f))
+    (fclose f)
+    data
+)
+
+(let TILES 0)
+(let AREAS 1)
+
+(let re_tile_id (re "^(\\d+):"))
+(fn looks_like_tile? [S]
+    (match? re_tile_id S)
+)
+
+(fn parse_tile [lines ix]
+    (let mtch1 (match re_tile_id (get lines ix)))
+    (let tix (strings:atoi (get mtch1 1)))
+    (fn _next [acc ix]
+        (cond (>= ix (len lines))
+            [acc ix]
+            (cond (is_empty? (get lines ix))
+                [acc (+ ix 1)]; mopve to the next line
+                (
+                    (put acc 1 (list:push (get acc 1) (list:map (get lines ix) (fn [ch] (cond (= ch "#") 1 0) ))))
+                    (_next acc (+ ix 1))
+                )
+            )
+        )
+    )
+    (_next [tix []] (+ ix 1))
+)
+
+; rotates a tile 3x3 90deg counter-clockwise
+; t00 t01 t02      t02 t12 t22
+; t10 t11 t12  ->  t01 t11 t21
+; t20 t21 t22      t00 t10 t20
+(fn rot [T]
+    (let t0 (get T 0))
+    (let t1 (get T 1))
+    (let t2 (get T 2))
+    [
+        [(get t0 2) (get t1 2) (get t2 2)]
+        [(get t0 1) (get t1 1) (get t2 1)]
+        [(get t0 0) (get t1 0) (get t2 0)]
+    ]
+)
+
+; t00 t01 t02      t02 t01 t00
+; t10 t11 t12  ->  t12 t11 t10
+; t20 t21 t22      t22 t21 t20
+(fn flip [T]
+    (let t0 (get T 0))
+    (let t1 (get T 1))
+    (let t2 (get T 2))
+    [
+        [(get t0 2) (get t0 1) (get t0 0)]
+        [(get t1 2) (get t1 1) (get t1 0)]
+        [(get t2 2) (get t2 1) (get t2 0)]
+    ]
+)
+
+(let re_area "^(\\d+)x(\\d+): (.*)")
+(fn parse_area [S]
+    (let mtch (match re_area S))
+    [
+        (strings:atoi (get mtch 1))
+        (strings:atoi (get mtch 2))
+        (list:map (strings:split (get mtch 3) " ") strings:atoi)
+    ]
+)
+
+(fn can_fit? [TS A]
+    (cond IS_DEBUG? (println "A=" A))
+    (let TMAP (list:reduce TS (fn [acc T]
+        (put acc (get T 0) (get T 1))
+        acc
+    ) (dict)))
+    (cond IS_DEBUG? (println "TMAP=" TMAP))
+    0
+)
+
+((fn main []
+    (let input (read_input_file "INPUT-TST"))
+    ; (let input (read_input_file "INPUT"))
+    (let lines (strings:split input "\n"))
+    (cond IS_DEBUG? (println lines))
+
+    (fn _next [acc ix]
+        (cond (>= ix (len lines))
+            acc
+            (cond (looks_like_tile? (get lines ix))
+                (
+                    (cond IS_DEBUG? (println "parsing tile"))
+                    ; parse tile
+                    (let TIX (parse_tile lines ix))
+                    (put acc TILES (list:push (get acc TILES) (get TIX 0)))
+                    (_next acc (get TIX 1))
+                )
+                (
+                    (cond IS_DEBUG? (println "parsing area"))
+                    (let A (parse_area (get lines ix)))
+                    (println A)
+                    (put acc AREAS (list:push (get acc AREAS) A))
+                    (_next acc (+ ix 1))
+                )
+            )
+        )
+    )
+    (let INP (_next [[] []] 0))
+    (cond IS_DEBUG? (println "TILES=" (get INP TILES)))
+    (cond IS_DEBUG? (println "AREAS=" (get INP AREAS)))
+
+    (let res1 (list:reduce (get INP AREAS) (fn [acc A]
+        (+ acc (cond (can_fit? (get INP TILES) A) 1 0))
+    ) 0))
+    (println "res1=" res1)
+))
