@@ -1,6 +1,7 @@
 (import "strings" ["split" "atoi"])
 (import "list" ["map" "reduce"])
 (import "math" ["min"])
+(import "test_utils" ["benchmark"] as tu)
 
 (let IS_DEBUG? false)
 
@@ -14,8 +15,8 @@
 (fn parse_light [S]
     (list:map (strings:trim S "[]") (fn [ch]
         (switch ch
-            ["." false]
-            ["#" true]
+            ["." 0]
+            ["#" 1]
             [* (raise! (+ "unexpected light: " ch))]
         )
     ))
@@ -73,121 +74,148 @@
 (fn apply [vec msk]
     (let cpvec (list:copy vec))
     (list:map msk (fn [ix]
-        (put cpvec ix (not (get cpvec ix)))
+        (put cpvec ix (% (+ (get cpvec ix) 1) 2))
     ))
     cpvec
 )
 
-(let INF 9999)
+(let INF 9999999)
+
+(fn find_all_presses [BS PAT]
+    (fn _next [presses bix state]
+        (cond (eql PAT state)
+            (
+                [presses]
+            )
+            (cond (>= bix (len BS))
+                []
+                (
+                    (let st1 (apply state (get BS bix)))
+                    (let ps1 (_next (+ presses [bix]) (+ bix 1) st1))
+                    (let ps2 (_next presses (+ bix 1) state))
+                    (+ ps1 ps2)
+                )
+            )
+        )
+    )
+    (_next [] 0 (* [0] (len PAT)))
+)
 
 (fn count_min_press [R]
-    (let L (get R LIGHTS))
-    (let BS (get R BUTTONS))
-    (let lenBS (len BS))
-
-    (let W (* [false] (len (get R LIGHTS))))
-    (cond IS_DEBUG? (println "W=" W))
-
-
-    (fn _recurse [cnt ST bix]
-        (cond (eql ST L)
-            cnt
-            (cond (>= bix lenBS)
-                INF
-                (math:min
-                    (_recurse (+ cnt 1) (apply ST (get BS bix)) (+ bix 1))
-                    (_recurse cnt ST (+ bix 1))
-                )
-            )
-        )
-    )
-
-    (_recurse 0 W 0)
+    (let all_presses (find_all_presses (get R BUTTONS) (get R LIGHTS)))
+    (list:reduce all_presses (fn [acc press]
+        (math:min acc (len press))
+    ) INF)
 )
 
-(fn sums_up? [BS PS SRS]
-    (fn _next [bix cur]
-        (cond (>= bix (len BS))
-            (
-                (cond IS_DEBUG? (println cur " == " SRS))
-                (eql cur SRS)
-            )
-            (
-                (let bump (list:reduce (get BS bix) (fn [acc six]
-                    (put cur six (+ (get cur six) (get PS bix)))
-                    (and acc (<= (get cur six) (get SRS six)))
-                ) true))
-                (cond bump
-                    (_next (+ bix 1) cur)
-                )
-            )
-        )
-    )
-    (_next 0 (* [0] (len SRS)))
-)
+; (fn count_min_press [R]
+;     (let L (get R LIGHTS))
+;     (let BS (get R BUTTONS))
+;     (let lenBS (len BS))
+; 
+;     (let W (* [0] (len (get R LIGHTS))))
+;     (cond IS_DEBUG? (println "W=" W))
+; 
+; 
+;     (fn _recurse [cnt ST bix]
+;         (cond (eql ST L)
+;             cnt
+;             (cond (>= bix lenBS)
+;                 INF
+;                 (math:min
+;                     (_recurse (+ cnt 1) (apply ST (get BS bix)) (+ bix 1))
+;                     (_recurse cnt ST (+ bix 1))
+;                 )
+;             )
+;         )
+;     )
+; 
+;     (_recurse 0 W 0)
+; )
 
-(fn count_min_press2 [R]
-    (let BS (get R BUTTONS))
-    (let SRS (get R SENSORS))
-    (let maxPS (list:reduce
-        (list:seq 0 (len BS))
-        (fn [acc bix]
-            (put acc bix (list:reduce (get BS bix) (fn [acc six]
-                (math:min acc (get SRS six))
-            ) (get acc bix)))
+(fn subtract_all [BS state bixs]
+    ;(println "initial state=" state)
+    ;(println "buttons: " bixs)
+    (fn _next [acc bix six]
+        (cond (>= bix (len bixs))
             acc
-        )
-        (* [INF] (len BS))
-    ))
-    (cond IS_DEBUG? (println "maxPS=" maxPS))
-
-    ; Idea:
-    ; first, build an index:
-    ;   S2B
-    ;   six1 -> [bix1 bix2 bix3]
-    ;   six2 -> [bix2 bix4]
-    ; 
-    ; for each bix in [bix1 bix2 bix3]
-    ;   start with : bix -> (fn [] (INF))
-    ;   continue with each six:
-    ;     new_fn (fn [] subtract (get maxPS bix) with the current values of all PS under bix'es
-    ;     except this one)
-    ; for each sensor:
-    ;    bix -> (math:min (pref_fn) (new_fn))
-    ; if maxPS for this bix is negative, return early
-
-    (fn _next [minP bix PS psSum]
-        (cond (>= psSum minP)
-            minP
-            (cond (>= bix (len BS))
-                minP
-                (cond (> (get PS bix) (get maxPS bix))
-                    minP
+            (
+                (let but (get BS (get bixs bix)))
+                (cond (>= six (len but))
+                    (_next acc (+ bix 1) 0)
                     (
-                        (cond IS_DEBUG? (println PS))
-                        (let minP0 (cond (sums_up? BS PS SRS)
-                            (math:min minP (list:sum PS))
-                            minP
-                        ))
-                        (let minP1 (_next minP0 (+ bix 1) PS psSum))
-                        (let curP (get PS bix))
-                        (put PS bix (+ curP 1))
-                        (let minP2 (_next (math:min minP0 minP1) bix PS (+ psSum 1)))
-                        (cond IS_DEBUG? (println "minP=" minP2))
-                        (put PS bix curP)
-                        minP2
+                        ;(println "deducting bix: " (get bixs bix) "(" but ") six: " six)
+                        (let deduct (- (get acc (get but six)) 1))
+                        (cond (< deduct 0)
+                            null
+                            (
+                                (put acc (get but six) deduct)
+                                (_next acc bix (+ six 1))
+                            )
+                        )
                     )
                 )
             )
         )
     )
-
-    (let PS (* [0] (len BS)))
-
-    (_next (list:sum SRS) 0 PS 0)
+    (_next (list:copy state) 0 0)
 )
 
-((fn main []
+(fn count_min_press2 [R]
+    (let BS (get R BUTTONS))
+    (let SNS (get R SENSORS))
+    (let zeroes (* [0] (len SNS)))
+    (let cache (dict))
+    (let state_cache (dict))
+    (fn _next [state]
+        (let state_key (str state))
+        (cond (has? state_cache state_key)
+            (get state_cache state_key)
+            (
+                (let R (cond (eql state zeroes)
+                    0 ; no more buttons to press, yay!
+                    (
+                        ; There is no direct connection between the next pattern and the zeroes vector: it is just very simple to copy it all the time.
+                        (let next_pat (list:map (list:seq 0 (len SNS)) (fn [ix]
+                            (% (get state ix) 2)
+                        )))
+                        (let cache_key (str next_pat))
+                        (let all_presses (cond (has? cache cache_key)
+                            (get cache cache_key)
+                            (
+                                (let pps (find_all_presses BS next_pat))
+                                (put cache cache_key pps)
+                                pps
+                            )
+                        ))
+                        ;(println "state=" state " next_pat=" next_pat)
+                        ;(println "candidate presses: " all_presses)
+                        (list:reduce all_presses (fn [acc press]
+                            (let next_state (subtract_all BS state press))
+                            (cond (is_null? next_state)
+                                acc
+                                (
+                                    ;(println "if press " press " the next state would be: " next_state)
+                                    (let half_state (list:map next_state (fn [el] (/ el 2))))
+                                    (let mp (_next half_state))
+                                    (cond (= mp INF)
+                                        acc
+                                        (math:min acc (+ (* mp 2) (len press)))
+                                    )
+                                )
+                            )
+                        ) INF) ; INF would be returned in case when no combination of presses would give us the desired result
+                    )
+                ))
+                (put state_cache state_key R)
+                R
+            )
+        )
+    )
+    (_next (get R SENSORS))
+)
+
+(tu:benchmark "day 10" (fn main []
     ;(let input (read_input_file "INPUT-TST"))
     (let input (read_input_file "INPUT"))
     (let lines (strings:split input "\n"))
@@ -202,11 +230,98 @@
     ) 0))
     (println "res1=" res1)
 
+    ; 220013939 is too high
     (let res2 (list:reduce RS (fn [acc R]
+        ;(cond IS_DEBUG? (println "processing " R))
         (println "processing " R)
         (let np (count_min_press2 R))
-        (println "min press 2 for " (get R SENSORS) " is " np)
+        (cond IS_DEBUG? (println "min press 2 for " (get R SENSORS) " is " np))
         (+ acc np)
     ) 0))
     (println "res2=" res2)
 ))
+
+; (fn sums_up? [BS PS SRS]
+;     (fn _next [bix cur]
+;         (cond (>= bix (len BS))
+;             (
+;                 (cond IS_DEBUG? (println cur " == " SRS))
+;                 (eql cur SRS)
+;             )
+;             (
+;                 (let bump (list:reduce (get BS bix) (fn [acc six]
+;                     (put cur six (+ (get cur six) (get PS bix)))
+;                     (and acc (<= (get cur six) (get SRS six)))
+;                 ) true))
+;                 (cond bump
+;                     (_next (+ bix 1) cur)
+;                 )
+;             )
+;         )
+;     )
+;     (_next 0 (* [0] (len SRS)))
+; )
+
+; (fn count_min_press2 [R]
+;     (let BS (get R BUTTONS))
+;     (let SRS (get R SENSORS))
+;     (let maxPS (list:reduce
+;         (list:seq 0 (len BS))
+;         (fn [acc bix]
+;             (put acc bix (list:reduce (get BS bix) (fn [acc six]
+;                 (math:min acc (get SRS six))
+;             ) (get acc bix)))
+;             acc
+;         )
+;         (* [INF] (len BS))
+;     ))
+;     (cond IS_DEBUG? (println "maxPS=" maxPS))
+; 
+;     ; Idea:
+;     ; first, build an index:
+;     ;   S2B
+;     ;   six1 -> [bix1 bix2 bix3]
+;     ;   six2 -> [bix2 bix4]
+;     ; 
+;     ; for each bix in [bix1 bix2 bix3]
+;     ;   start with : bix -> (fn [] (INF))
+;     ;   continue with each six:
+;     ;     new_fn (fn [] subtract (get maxPS bix) with the current values of all PS under bix'es
+;     ;     except this one)
+;     ; for each sensor:
+;     ;    bix -> (math:min (pref_fn) (new_fn))
+;     ; if maxPS for this bix is negative, return early
+; 
+;     (fn _next [minP bix PS psSum]
+;         (cond (>= psSum minP)
+;             minP
+;             (cond (>= bix (len BS))
+;                 minP
+;                 (cond (> (get PS bix) (get maxPS bix))
+;                     minP
+;                     (
+;                         (cond IS_DEBUG? (println PS))
+;                         (let minP0 (cond (sums_up? BS PS SRS)
+;                             (math:min minP (list:sum PS))
+;                             minP
+;                         ))
+;                         (let minP1 (_next minP0 (+ bix 1) PS psSum))
+;                         (let curP (get PS bix))
+;                         (put PS bix (+ curP 1))
+;                         (let minP2 (_next (math:min minP0 minP1) bix PS (+ psSum 1)))
+;                         (cond IS_DEBUG? (println "minP=" minP2))
+;                         (put PS bix curP)
+;                         minP2
+;                     )
+;                 )
+;             )
+;         )
+;     )
+; 
+;     (let PS (* [0] (len BS)))
+; 
+;     (_next (list:sum SRS) 0 PS 0)
+; )
+
+
+
