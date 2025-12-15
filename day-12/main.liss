@@ -1,8 +1,9 @@
 (import "strings" ["split" "atoi"])
 (import "list" ["map" "reduce"])
 (import "assert")
+(import "test_utils" ["benchmark"] as tu)
 
-(let IS_DEBUG? true)
+(let IS_DEBUG? false)
 
 (fn read_input_file [src]
     (let f (fopen src))
@@ -37,35 +38,6 @@
     (_next [tix []] (+ ix 1))
 )
 
-; rotates a tile 3x3 90deg counter-clockwise
-; t00 t01 t02      t02 t12 t22
-; t10 t11 t12  ->  t01 t11 t21
-; t20 t21 t22      t00 t10 t20
-(fn rot [T]
-    (let t0 (get T 0))
-    (let t1 (get T 1))
-    (let t2 (get T 2))
-    [
-        [(get t0 2) (get t1 2) (get t2 2)]
-        [(get t0 1) (get t1 1) (get t2 1)]
-        [(get t0 0) (get t1 0) (get t2 0)]
-    ]
-)
-
-; t00 t01 t02      t02 t01 t00
-; t10 t11 t12  ->  t12 t11 t10
-; t20 t21 t22      t22 t21 t20
-(fn flip [T]
-    (let t0 (get T 0))
-    (let t1 (get T 1))
-    (let t2 (get T 2))
-    [
-        [(get t0 2) (get t0 1) (get t0 0)]
-        [(get t1 2) (get t1 1) (get t1 0)]
-        [(get t2 2) (get t2 1) (get t2 0)]
-    ]
-)
-
 (let re_area "^(\\d+)x(\\d+): (.*)")
 (fn parse_area [S]
     (let mtch (match re_area S))
@@ -76,19 +48,18 @@
     ]
 )
 
-(fn can_fit? [TS A]
-    (cond IS_DEBUG? (println "A=" A))
-    (let TMAP (list:reduce TS (fn [acc T]
-        (put acc (get T 0) (get T 1))
-        acc
-    ) (dict)))
-    (cond IS_DEBUG? (println "TMAP=" TMAP))
-    0
+(fn can_fit? [TS TSIZES A]
+    (let tot_area (* (get A 0) (get A 1)))
+    (let need_size (list:reduce (list:seq 0 (len TS)) (fn [acc t_ix]
+        (let cnt (get (get A 2) t_ix))
+        (+ acc (* cnt (get TSIZES t_ix)))
+    ) 0))
+    (>= tot_area need_size)
 )
 
-((fn main []
-    (let input (read_input_file "INPUT-TST"))
-    ; (let input (read_input_file "INPUT"))
+(tu:benchmark "day 12" (fn main []
+    ;(let input (read_input_file "INPUT-TST"))
+    (let input (read_input_file "INPUT"))
     (let lines (strings:split input "\n"))
     (cond IS_DEBUG? (println lines))
 
@@ -106,7 +77,6 @@
                 (
                     (cond IS_DEBUG? (println "parsing area"))
                     (let A (parse_area (get lines ix)))
-                    (println A)
                     (put acc AREAS (list:push (get acc AREAS) A))
                     (_next acc (+ ix 1))
                 )
@@ -117,8 +87,25 @@
     (cond IS_DEBUG? (println "TILES=" (get INP TILES)))
     (cond IS_DEBUG? (println "AREAS=" (get INP AREAS)))
 
+    (let TSIZES (list:reduce (get INP TILES) (fn [acc T]
+        (let t_id (get T 0))
+        (let body (get T 1))
+        (fn _next [acc x y]
+            (cond (>= y (len body))
+                acc
+                (cond (>= x (len (get body y)))
+                    (_next acc 0 (+ y 1))
+                    (_next (+ acc (get (get body y) x)) (+ x 1) y)
+                )
+            )
+        )
+        (let size (_next 0 0 0))
+        (put acc t_id size)
+        acc
+    ) (dict)))
+
     (let res1 (list:reduce (get INP AREAS) (fn [acc A]
-        (+ acc (cond (can_fit? (get INP TILES) A) 1 0))
+        (+ acc (cond (can_fit? (get INP TILES) TSIZES A) 1 0))
     ) 0))
     (println "res1=" res1)
 ))
